@@ -830,3 +830,526 @@ Trace trên là tính tay. Chương trình kiểm tra đầu ra cuối của API
 ## Bàn giao
 
 Dùng dữ liệu, trace và kết quả để viết phần Mesh. Tiếp theo là T2.1. BASE.7 vẫn chờ tích hợp đủ năm API.
+
+
+# T2.2 - Cai ba heuristic 3D cho AUV
+
+**Pham vi** - Hang 60, sheet PROGRESS. **Trang thai** - Kiem thu cuc bo dat.
+
+## Du lieu va tinh tay
+
+Tram hien tai co toa do (1, 2, 30). Tram dich co toa do (4, 6, 18).
+Chenh lech tuyet doi theo ba truc la dx = 3, dy = 4 va dz = 12.
+
+| Mode | Heuristic | Phep tinh | Ket qua |
+|---:|---|---|---:|
+| 1 | Manhattan | 3 + 4 + 12 | 19 |
+| 2 | Euclidean | sqrt(3*3 + 4*4 + 12*12) = sqrt(169) | 13 |
+| 3 | Chebyshev | max(3, 4, 12) | 12 |
+
+Tai tram dich, ca ba do lech deu bang 0 nen h(goal) = 0 o ca ba mode.
+
+## Trace tinh tay
+
+Voi mode 2, ham tinh dx, dy va dz tu toa do cua hai tram. Moi phep tru
+duoc thuc hien o kieu double de tranh tran so nguyen. Ham binh phuong
+ba do lech, cong thanh 9 + 16 + 144 = 169, roi lay can bac hai de tra
+ve h = 13. Ham auvHeuristic trong src/Algo.cpp su dung O(1) thoi gian
+va O(1) bo nho phu cho moi lan goi.
+
+## Ket qua chay thuc te
+
+Build tests/test_t2_2.cpp voi src/PathNode.cpp bang GCC C++11 tren
+Linux, voi cac co -Wall -Wextra -Werror -pedantic. Test doi chieu ba
+mode voi ket qua tinh tay, kiem tra h(goal) va kiem tra mode 99.
+Chuong trinh thoat voi ma 0.
+
+```text
+Mode 1 | h=19 | h(goal)=0
+Mode 2 | h=13 | h(goal)=0
+Mode 3 | h=12 | h(goal)=0
+PASS
+```
+
+Test hoi quy T2.1 cung dat ca nam ca. Chua chay T2.2 tren Windows
+hoac LMS. Gia tri 0.0 cho mode ngoai 1-3 la quy uoc cua helper cuc
+bo. Cach xu ly mode khong hop le cua API se duoc xac dinh o T2.3.
+
+## Ban giao
+
+T2.3 se goi auvHeuristic de tinh h va auvEdgeCost de tinh phan tang
+cua g trong findAUVPath. T2.4 se so sanh ba mode voi moc h = 0.
+Khoang cach hinh hoc co the vuot chi phi nang luong con lai, vi vay
+kiem thu cong thuc h va kiem chung chi phi duong di la hai buoc rieng.
+
+# T2.1 — Tính năng lượng cạnh AUV theo chênh lệch độ sâu
+
+**Phạm vi** — Hàng 59, sheet PROGRESS. **Trạng thái** — Kiểm thử cục bộ đạt.
+
+## Dữ liệu và tính tay
+
+Theo đề, chi phí đi từ trạm u đến trạm v bằng trọng số năng lượng cơ sở w(u,v) nhân với hệ số 1 + |z_v − z_u| / 100. Hai giá trị z_u và z_v là độ sâu của trạm đầu và trạm cuối. Khi hai trạm có cùng độ sâu, hệ số bằng 1. Khi chênh lệch là 100, hệ số bằng 2.
+
+| Trọng số cơ sở | Độ sâu đầu → cuối | Chênh lệch tuyệt đối | Hệ số | Năng lượng kỳ vọng |
+|---:|---:|---:|---:|---:|
+| 10 | 40 → 40 | 0 | 1 | 10 |
+| 10 | 40 → 140 | 100 | 2 | 20 |
+| 10 | 140 → 40 | 100 | 2 | 20 |
+| 8 | 40 → 65 | 25 | 1.25 | 10 |
+| 1 | −2.000.000.000 → 2.000.000.000 | 4.000.000.000 | 40.000.001 | 40.000.001 |
+
+Hai ca đảo chiều dùng cùng trọng số cơ sở để kiểm tra tính đối xứng của hệ số độ sâu. Ca cuối dùng giá trị biên để kiểm tra phép trừ.
+
+## Trace tính tay
+
+Với cạnh có trọng số 10, từ độ sâu 40 đến 140, hàm chuyển cả hai độ sâu sang `double` trước khi trừ, sau đó lấy trị tuyệt đối để thu được 100.0. Chia cho 100.0 rồi cộng 1.0 cho hệ số 2.0. Nhân hệ số với trọng số cơ sở cho chi phí cạnh 20.0. Ví dụ, nếu chi phí tích lũy tại trạm hiện tại là 7.0, bước tích hợp A* sẽ xét chi phí ứng viên 7.0 + 20.0 = 27.0 cho trạm kế tiếp.
+
+Hàm `auvEdgeCost(double weight, int fromDepth, int toDepth)` nằm trong `src/Algo.cpp` và dùng `<cmath>` cho `std::abs`. Hàm nhận trọng số của cạnh đã được xác định là hợp lệ và tính chi phí trong O(1) thời gian, O(1) bộ nhớ phụ.
+
+## Kết quả chạy thực tế
+
+Biên dịch `tests/test_t2_1.cpp` cùng `src/PathNode.cpp` bằng GCC C++11 trên Linux với các cờ `-Wall -Wextra -Werror -pedantic`. Test gọi trực tiếp helper, so sánh kết quả với giá trị tính tay bằng dung sai tuyệt đối 1e-9 và thoát với mã 0.
+
+```text
+40 -> 40 | actual=10 | expected=10
+40 -> 140 | actual=20 | expected=20
+140 -> 40 | actual=20 | expected=20
+40 -> 65 | actual=10 | expected=10
+-2000000000 -> 2000000000 | actual=4e+07 | expected=4e+07
+PASS
+```
+
+Console làm tròn giá trị ở dòng cuối theo định dạng mặc định. Phép kiểm tra vẫn dùng giá trị kỳ vọng 40000001.0. Test hồi quy Mesh T1.4 cũng đạt, trả tuyến 0 → 2 → 3 với g tại đích bằng 2.25. Chưa chạy trên Windows hoặc LMS.
+
+## Bàn giao
+
+Giữ helper trong `src/Algo.cpp` và dùng `tests/test_t2_1.cpp` để kiểm thử cục bộ. T2.2 sẽ triển khai ba heuristic 3D. Khi tích hợp `findAUVPath()` ở T2.3, vòng lặp A* sẽ gọi helper cho từng cạnh AUV hợp lệ để tính phần tăng của g.
+
+# T2.3 - Tich hop findAUVPath
+
+**Pham vi** - Hang 61, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Trien khai
+
+Them findAUVPath vao src/Algo.cpp theo chu ky trong Algo.h.
+AuvNeighbors quet hang cua tram hien tai trong ma tran trong so.
+Voi moi canh hop le, auvEdgeCost tinh nang luong theo trong so
+co so va chenh lech do sau. auvHeuristic tinh h theo mode 1
+Manhattan, mode 2 Euclidean hoac mode 3 Chebyshev.
+
+Engine A* dung g de luu nang luong tich luy va dung f = g + h
+de chon trang thai tiep theo. Sau khi tim thay dich, reconstructPath
+dung danh sach PathNode tu start den goal. Nhan moi nut la ID tram
+dang thap phan. Ben goi giai phong danh sach bang freePath.
+
+## Du lieu va tinh tay
+
+Toa do cua tram 0, 1 va 2 lan luot la (0,0,0), (0,0,100)
+va (3,4,100). Tram 0 la diem dau, tram 2 la dich.
+
+| Canh | Trong so co so | Chenh lech do sau | Nang luong |
+|---|---:|---:|---:|
+| 0 -> 1 | 100 | 100 | 200 |
+| 1 -> 2 | 10 | 0 | 10 |
+| 0 -> 2 | 150 | 100 | 300 |
+
+Tuyen 0 -> 1 -> 2 ton 200 + 10 = 210. Canh truc tiep 0 -> 2
+ton 300.
+
+## Trace tinh tay cho mode 2
+
+| Nut lay khoi heap | Thay doi trang thai |
+|---|---|
+| 0 | Them tram 1 voi g=200, h=5, f=205. Them tram 2 voi g=300, h=0, f=300. |
+| 1 | Tim duoc duong re hon toi tram 2. Cap nhat g=210, h=0, f=210 va parent=1. |
+| 2 | Lay ban ghi co g=210, dung va truy vet 0 -> 1 -> 2. |
+
+## Ket qua chay thuc te
+
+Build test_t2_3.cpp cung Algo.cpp va PathNode.cpp bang GCC C++11
+voi -Wall -Wextra -Werror -pedantic. Test kiem tra nhan, thu tu,
+g/h/f va duoi danh sach tren ca ba mode. Cac ca bien gom start
+trung goal, khong co duong, chi so ngoai pham vi, mode sai va
+con tro null. Chuong trinh thoat voi ma 0.
+
+```text
+Mode 1 | 0 -> 1 -> 2 | g=210
+Mode 2 | 0 -> 1 -> 2 | g=210
+Mode 3 | 0 -> 1 -> 2 | g=210
+PASS
+```
+
+Test hoi quy Mesh T1.4 cung dat voi tuyen 0 -> 2 -> 3 va g=2.25.
+T2.2 da PASS tren PowerShell cua nguoi dung. T2.3 da chay tren
+Linux va con cho log PowerShell. Chua chay tren LMS.
+
+## Quy uoc va ban giao
+
+T2.3 tam dung canh co trong so duong, huu han, bo self-loop va
+tra nullptr khi mode nam ngoai 1-3. Moi lan mo rong quet mot hang
+gom V o, voi V la so tram duoc bieu dien trong ma tran. Can doi
+chieu sentinel canh, nhan tram va xu ly mode sai voi testcase LMS.
+
+Engine hien tai dung khi lay dich khoi heap. Neu khoang cach 3D
+uoc luong cao hon nang luong con lai, cach dung nay co the tra
+tuyen chua toi uu. T2.4 se doi chieu ba mode voi moc h=0 va ghi
+lai chi phi duong di cung so luot mo rong.
+
+# T2.4 - So sanh ba heuristic AUV voi h = 0
+
+**Pham vi** - Hang 62, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Phuong phap do
+
+Tren moi do thi, chay cung engine A* voi mode 1 Manhattan, mode 2
+Euclidean, mode 3 Chebyshev va mot luot doi chung h = 0. Vi cac canh
+co chi phi duong, luot h = 0 uu tien g nho nhat va cho moc chi phi
+toi uu. Mode 0 chi la nhan cua luot doi chung trong test.
+
+Mot luot mo rong duoc dem khi engine goi ham sinh hang xom.
+Nut dich chi duoc lay khoi heap de dung nen khong tinh la mo rong.
+Ban ghi cu bi bo qua truoc khi sinh hang xom nen cung khong duoc dem.
+So luot mo rong phan anh khoi luong tim kiem trong hai ca nay.
+Test khong do thoi gian chay.
+
+## Du lieu va tinh tay
+
+Ca A co diem dau 0, dich 2, toa do x cua cac tram 0, 1, 2, 3
+lan luot la 0, 5, 10, -5. Cac canh 0->1, 1->2, 0->2, 0->3
+co chi phi lan luot la 5, 5, 12, 5. Tram 3 la nut cut.
+Tuyen 0->1->2 ton 10, thap hon chi phi 12 cua canh truc tiep.
+
+Ca B co diem dau 0, dich 2, toa do x cua cac tram 0, 1, 2
+lan luot la 0, 100, 0. Cac canh 0->1 va 1->2 cung ton 1.
+Canh truc tiep 0->2 ton 5. Hai tram 0 va 2 la hai ID rieng
+trong ma tran, du co cung toa do.
+
+Trong ca A va B, moi toa do y, z deu bang 0. Vi cac tram cung
+do sau, chi phi canh bang trong so co so. Ca ba heuristic cho
+cung gia tri tren cac du lieu nay vi chi truc x co the thay doi.
+
+## Trace tinh tay
+
+Ca A, sau khi mo rong tram 0, h = 0 cho f(1) = f(3) = 5.
+Engine mo rong tram 1 truoc theo ID, roi van mo rong tram 3 vi
+f(3) = 5 nho hon f(2) = 10 sau khi cap nhat. Voi ba heuristic
+hinh hoc, f(1) = 5 + 5 = 10 va f(3) = 5 + 15 = 20.
+Sau khi mo rong tram 1, engine lay dich voi g = 10 va dung.
+So luot mo rong giam tu 3 xuong 2, chi phi toi uu van la 10.
+
+Ca B, sau khi mo rong tram 0, luot h = 0 chon tram 1 vi
+f(1) = 1 < f(2) = 5, roi cap nhat g(2) = 2.
+Voi ca ba heuristic hinh hoc, h(1) = 100 du chi phi that tu
+tram 1 den dich chi la 1. Khi do f(1) = 101 > f(2) = 5.
+Engine lay dich truoc va tra tuyen 0->2 voi chi phi 5.
+So luot mo rong giam tu 2 xuong 1, nhung chi phi tang tu 2 len 5.
+
+## Ket qua chay thuc te
+
+Build tests/test_t2_4.cpp voi src/PathNode.cpp bang GCC C++11,
+cac co -Wall -Wextra -Werror -pedantic. Test doi chieu chi phi,
+so luot mo rong va xac nhan danh sach cua ban do trung voi API
+o ba mode. Chuong trinh thoat voi ma 0.
+
+```text
+A: Same optimal cost
+Mode 0 | 0 -> 1 -> 2 | g=10 | expanded=3
+Mode 1 | 0 -> 1 -> 2 | g=10 | expanded=2
+Mode 2 | 0 -> 1 -> 2 | g=10 | expanded=2
+Mode 3 | 0 -> 1 -> 2 | g=10 | expanded=2
+B: Heuristic overestimates
+Mode 0 | 0 -> 1 -> 2 | g=2 | expanded=2
+Mode 1 | 0 -> 2 | g=5 | expanded=1
+Mode 2 | 0 -> 2 | g=5 | expanded=1
+Mode 3 | 0 -> 2 | g=5 | expanded=1
+PASS
+```
+
+T2.3 da PASS tren PowerShell. T2.4 da chay tren Linux va dang
+cho log PowerShell. Chua co ket qua LMS.
+
+## Ban giao
+
+Dung hai ca de viet phan so sanh AUV. Ca A cho thay heuristic
+co the giam so luot mo rong ma van giu chi phi toi uu. Ca B cho
+thay khi h uoc luong qua cao, dung o lan lay dich dau tien co
+the tra tuyen dat hon. Hai ca cung nam tren mot truc, nen ket
+qua chua phan biet hieu nang cua ba heuristic tren du lieu 3D
+tong quat. Muc ke tiep trong checklist la T3.1.
+
+# T3.1 - Tinh chi phi co rui ro va heuristic Probabilistic
+
+**Pham vi** - Hang 63, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Trien khai
+
+Them probabilisticEdgeCost va probabilisticHeuristic trong src/Algo.cpp.
+Ham chi phi nhan khoang cach, xac suat rui ro va he so lambda cua
+mot canh hop le. Gia tri tra ve la distance + lambda * risk.
+Khi tich hop API, gia tri nay se duoc cong vao g cua nut hien tai
+de tinh g ung vien cho nut ke tiep.
+
+Ham heuristic nhan hai hang toa do 2D tu coords[100][2]. Moi phep tru
+toa do duoc tinh o kieu double de tranh tran so nguyen. Theo quy uoc
+tam C09, mode 1 la Manhattan va mode 2 la Euclidean. Helper tra 0.0
+voi mode khac. Anh xa mode va xu ly mode sai o API con cho doi chieu
+voi testcase LMS.
+
+## Du lieu va tinh tay
+
+| Distance | Risk | Lambda | Chi phi canh |
+|---:|---:|---:|---:|
+| 10 | 0.5 | 0 | 10 + 0 * 0.5 = 10 |
+| 10 | 0.125 | 8 | 10 + 8 * 0.125 = 11 |
+| 10 | 0.5 | 8 | 10 + 8 * 0.5 = 14 |
+
+Voi lambda = 0, chi phi canh bang khoang cach. Voi lambda = 8,
+hai canh cung khoang cach co chi phi 11 va 14 do muc rui ro khac nhau.
+
+Tu (1,6) den (4,2), do lech tuyet doi theo hai truc la dx = 3
+va dy = 4. Manhattan tra 3 + 4 = 7. Euclidean tra
+sqrt(3*3 + 4*4) = 5. Tai dich, ca hai do lech bang 0 nen
+h(goal) = 0. Moi helper dung O(1) thoi gian va O(1) bo nho phu.
+
+## Ket qua chay thuc te
+
+Build tests/test_t3_1.cpp cung src/PathNode.cpp bang GCC C++11
+voi -Wall -Wextra -Werror -pedantic. Test doi chieu ba chi phi
+canh, hai gia tri heuristic va h(goal) o ca hai mode.
+Chuong trinh thoat voi ma 0.
+
+```text
+lambda=0 | cost=10
+lambda=8 | low=11 | high=14
+Mode 1 | h=7 | h(goal)=0
+Mode 2 | h=5 | h(goal)=0
+PASS
+```
+
+T2.4 da PASS tren PowerShell. T3.1 da chay tren Linux va dang cho
+log PowerShell. Chua co ket qua LMS cho T3.1.
+
+## Ban giao
+
+T3.2 tinh P_safe bang tich cac he so (1 - risk) tren tuyen da chon.
+T3.3 se tich hop hai helper T3.1 vao findProbabilisticPath va xu ly
+viec nhan dien canh hop le. Heuristic hinh hoc chi la uoc luong.
+Tinh toi uu khi dung o lan lay dich dau tien phu thuoc vao viec h
+co la can duoi cua chi phi con lai hay khong.
+
+# T3.2 - Tinh xac suat an toan cua tuyen da chon
+
+**Pham vi** - Hang 64, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Trien khai
+
+Them probabilisticPathSafety trong src/Algo.cpp. Ham nhan ma tran
+riskMatrix va day ID nut cua tuyen theo thu tu tu start den goal.
+Gia tri safety khoi tao bang 1.0. Voi moi cap nut lien tiep u, v,
+ham nhan safety voi 1.0 - riskMatrix[u][v]. Phep nhan dua tren
+gia dinh rui ro doc lap giua cac canh trong de.
+
+Helper gia dinh cac ID hop le va rui ro tren tuyen nam trong [0,1).
+Voi tuyen co L nut, ham duyet toi da L - 1 canh, dung O(L) thoi gian
+va O(1) bo nho phu. Ma tran rui ro duoc doc theo huong di u -> v.
+
+## Du lieu va trace tinh tay
+
+Khoi tao riskMatrix ve 0. Gan riskMatrix[0][1] = 0.1 va
+riskMatrix[1][2] = 0.2. Voi tuyen 0 -> 1 -> 2, trang thai
+safety thay doi nhu sau.
+
+| Buoc | Canh | Risk | He so an toan | Safety sau buoc |
+|---|---|---:|---:|---:|
+| 0 | Khoi tao | - | - | 1 |
+| 1 | 0 -> 1 | 0.1 | 0.9 | 0.9 |
+| 2 | 1 -> 2 | 0.2 | 0.8 | 0.72 |
+
+Tuyen mot nut khong co canh nen giu safety = 1. Vector rong
+cung tra 1 theo quy uoc tich rong cua helper. Ca 2 -> 1 -> 0
+cho 1 vi hai o rui ro theo huong nguoc deu bang 0. Ca nay
+kiem tra cach doc ma tran theo dung huong.
+
+## Ket qua chay thuc te
+
+Build tests/test_t3_2.cpp cung src/PathNode.cpp bang GCC C++11
+voi -Wall -Wextra -Werror -pedantic. Test so sanh ket qua 0.72
+voi dung sai tuyet doi 1e-12. Ca bon ca dat, ma thoat 0.
+
+```text
+Empty | P_safe=1
+0 | P_safe=1
+0 -> 1 -> 2 | P_safe=0.72
+2 -> 1 -> 0 | P_safe=1
+PASS
+```
+
+T3.1 da PASS tren PowerShell. T3.2 da chay tren Linux va dang
+cho log PowerShell. Chua co ket qua LMS cho T3.2.
+
+## Ban giao
+
+T3.3 se goi helper voi day ID cua tuyen da tim thay. Truong hop
+tim kiem that bai can duoc xu ly rieng truoc khi goi helper, vi
+gia tri 1 cua tich rong khong bieu thi co tuyen an toan.
+Cach xuat P_safe qua API hoac CodeRunner con cho doi chieu
+voi testcase hoac Q&A chinh thuc.
+
+# T3.3 - Tich hop findProbabilisticPath va tinh P_safe
+
+**Pham vi** - Hang 65, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+Quy uoc xuat P_safe tren LMS con cho xac nhan.
+
+## Trien khai
+
+findProbabilisticPath dung engine A* hien co. Khi mo rong nut u,
+ProbabilisticNeighbors quet hang u cua ma tran va phat cac canh
+hop le voi chi phi distance + lambda * risk. Heuristic dung mode 1
+Manhattan hoac mode 2 Euclidean theo quy uoc tam C09.
+
+reconstructPath dung danh sach PathNode tu start den goal va thu
+thap ID theo cung thu tu. Helper T3.2 nhan day ID nay de tinh
+P_safe. Ham giu nguyen chu ky trong de va cac truong PathNode.
+
+Moi lan goi dat lai gia tri getter cuc bo ve -1. Getter tra -1
+khi khong co tuyen hoac dau vao khong hop le. Khi start trung
+goal va dau vao hop le, danh sach co mot nut va P_safe = 1.
+Gia tri getter thuoc lan goi gan nhat tren cung luong.
+
+## Du lieu va trace tinh tay
+
+Chon start = 0, goal = 2, lambda = 10. Toa do ba nut 0, 1, 2
+lan luot la (0,0), (1,0), (2,1).
+
+| Canh | Distance | Risk | Chi phi |
+|---|---:|---:|---:|
+| 0 -> 1 | 4 | 0.1 | 5 |
+| 1 -> 2 | 3 | 0.2 | 5 |
+| 0 -> 2 | 12 | 0 | 12 |
+
+Voi mode 1, mo rong nut 0 cho nut 1 co g=5, h=2, f=7 va
+nut dich co g=12, h=0, f=12. Engine mo rong nut 1 truoc,
+cap nhat nut dich thanh g=10, h=0, f=10 va parent=1.
+Khi lay dich khoi heap, engine truy vet tuyen 0 -> 1 -> 2.
+
+P_safe = (1 - 0.1) * (1 - 0.2) = 0.72. Gia tri g = 10
+la chi phi co phat rui ro dung de chon tuyen. P_safe duoc
+tinh tren chinh tuyen tra ve, theo gia dinh rui ro doc lap.
+
+## Ket qua chay thuc te
+
+Build tests/test_t3_3.cpp voi src/Algo.cpp va src/PathNode.cpp
+bang GCC C++11, voi -Wall -Wextra -Werror -pedantic. Test doi
+chieu nhan, g/h/f, duoi danh sach va P_safe o ca hai mode.
+Test cung xac nhan start trung goal cho P_safe = 1 va lan goi
+khong co duong tra nullptr, dong thoi xoa ket qua P_safe cu.
+
+```text
+Mode 1 | 0 -> 1 -> 2 | g=10 | P_safe=0.72
+Mode 2 | 0 -> 1 -> 2 | g=10 | P_safe=0.72
+PASS
+```
+
+T3.2 da PASS tren PowerShell. T3.3 da PASS tren Linux, con cho
+log PowerShell va ket qua LMS.
+
+## Quy uoc va ban giao
+
+Tam dung distance duong va huu han, risk thuoc [0,1), bo
+self-loop, lambda huu han va khong am. Mot luot mo rong quet
+V o trong mot hang ma tran. Thu thap ID va tinh P_safe them
+O(L) thoi gian va O(L) bo nho phu voi tuyen dai L nut.
+
+De yeu cau P_safe, nhung printPath mau chi in name, f, g, h.
+Chua xac nhan duoc cach xuat P_safe tu testcase hoac Q&A LMS.
+Getter getLastProbabilisticPathSafety la quy uoc cuc bo de
+test va demo doc gia tri. API tim duong khong tu in stdout.
+
+T3.4 se thay doi lambda tren hai tuyen de doi chieu thoi diem
+tuyen uu tien thay doi, chi phi g va P_safe cua tuyen duoc chon.
+
+# T3.4 - Kiem thu tac dong cua lambda len lua chon tuyen
+
+**Pham vi** - Hang 66, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Du lieu
+
+Start la nut 0, goal la nut 2. Toa do cua ba nut 0, 1, 2
+lan luot la (0,0), (1,0), (2,0). Moi o distance va risk
+ngoai cac canh duoi day duoc khoi tao bang 0.
+
+| Canh co huong | Distance | Risk |
+|---|---:|---:|
+| 0 -> 2 | 4 | 0.5 |
+| 0 -> 1 | 3 | 0.125 |
+| 1 -> 2 | 3 | 0.125 |
+
+## Tinh tay diem doi tuyen
+
+Tuyen ngan 0 -> 2 co g = 4 + 0.5 * lambda va P_safe = 0.5.
+
+Tuyen dai 0 -> 1 -> 2 co g = 6 + 0.25 * lambda va
+P_safe = (1 - 0.125) * (1 - 0.125) = 0.765625,
+dua tren gia dinh rui ro doc lap giua hai canh.
+
+Dat hai chi phi bang nhau:
+
+    4 + 0.5 * lambda = 6 + 0.25 * lambda
+    0.25 * lambda = 2
+    lambda = 8
+
+Duoi nguong 8, tuyen ngan re hon. Tren nguong 8, tuyen dai
+re hon theo ham chi phi co phat rui ro. P_safe cua moi tuyen
+giu nguyen khi lambda thay doi. P_safe cua ket qua chi thay
+doi khi chuong trinh chon tuyen khac.
+
+| Lambda | g tuyen ngan | g tuyen dai | Tuyen quan sat | P_safe |
+|---:|---:|---:|---|---:|
+| 4 | 6 | 7 | 0 -> 2 | 0.5 |
+| 8 | 8 | 8 | 0 -> 2 | 0.5 |
+| 12 | 10 | 9 | 0 -> 1 -> 2 | 0.765625 |
+
+## Trace tai diem dong hang
+
+Voi lambda = 8, mo rong nut 0 tao ban ghi dich co g = 8
+va nut 1 co g = 4, h = 1, f = 5. Engine mo rong nut 1
+truoc. Qua nut 1, chi phi ung vien toi dich cung la 8.
+Engine chi cap nhat khi g moi nho hon g cu, nen parent
+cua dich van la nut 0. Ca hai tuyen deu co chi phi 8.
+Viec giu tuyen truc tiep la hanh vi cua engine cuc bo.
+Quy tac dong hang tren LMS con cho doi chieu.
+
+## Ket qua chay thuc te
+
+Build tests/test_t3_4.cpp voi src/Algo.cpp va src/PathNode.cpp
+bang GCC C++11 voi -Wall -Wextra -Werror -pedantic. Test
+goi API o ca hai mode va doi chieu thu tu nut, chi phi tai
+dich va P_safe. Ca sau lan goi deu dat, ma thoat 0.
+
+```text
+Mode 1 | lambda=4 | 0 -> 2 | g=6 | P_safe=0.5
+Mode 1 | lambda=8 | 0 -> 2 | g=8 | P_safe=0.5
+Mode 1 | lambda=12 | 0 -> 1 -> 2 | g=9 | P_safe=0.765625
+Mode 2 | lambda=4 | 0 -> 2 | g=6 | P_safe=0.5
+Mode 2 | lambda=8 | 0 -> 2 | g=8 | P_safe=0.5
+Mode 2 | lambda=12 | 0 -> 1 -> 2 | g=9 | P_safe=0.765625
+PASS
+```
+
+T3.1 den T3.3 da PASS tren PowerShell. T3.4 da PASS tren
+Linux va dang cho log PowerShell. Chua co ket qua LMS.
+
+## Ban giao
+
+Dung du lieu, phep tinh nguong lambda va bang ket qua
+cho phan Probabilistic trong bao cao. Getter cuc bo
+tu T3.3 cung cap P_safe cho test. Quy uoc xuat P_safe
+va xu ly dong hang tren LMS van cho xac nhan.
+
+

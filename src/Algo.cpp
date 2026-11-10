@@ -1,6 +1,7 @@
 #include "Algo.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace {
 
@@ -40,6 +41,29 @@ inline double meshGoalLowerBound(const double weightMatrix[][MeshNodeCount],
         }
     }
     return best;
+}
+
+inline double auvEdgeCost(double weight, int fromDepth, int toDepth) {
+    const double depthDifference =
+        std::abs(static_cast<double>(toDepth) - static_cast<double>(fromDepth));
+    return weight * (1.0 + depthDifference / 100.0);
+}
+
+inline double auvHeuristic(const int from[3], const int goal[3], int mode) {
+    const double dx = std::abs(static_cast<double>(from[0]) - goal[0]);
+    const double dy = std::abs(static_cast<double>(from[1]) - goal[1]);
+    const double dz = std::abs(static_cast<double>(from[2]) - goal[2]);
+
+    switch (mode) {
+        case 1:
+            return dx + dy + dz;
+        case 2:
+            return std::sqrt(dx * dx + dy * dy + dz * dz);
+        case 3:
+            return std::max(dx, std::max(dy, dz));
+        default:
+            return 0.0;
+    }
 }
 
 struct SearchRecord {
@@ -187,4 +211,156 @@ PathNode* findMeshPath(double weightMatrix[100][100],
     return reconstructPath(search, goal, [](int id, int) {
         return std::to_string(id);
     });
+}
+
+namespace {
+
+constexpr int AuvStationCount = 100;
+
+struct AuvNeighbors {
+    const double (*weights)[AuvStationCount];
+    const int (*coords)[3];
+
+    template <typename Emit>
+    void operator()(int from, Emit emit) const {
+        for (int to = 0; to < AuvStationCount; ++to) {
+            const double weight = weights[from][to];
+            if (from != to && weight > 0.0 && std::isfinite(weight)) {
+                const double cost =
+                    auvEdgeCost(weight, coords[from][2], coords[to][2]);
+                if (std::isfinite(cost)) {
+                    emit(to, cost);
+                }
+            }
+        }
+    }
+};
+
+}  // namespace
+
+PathNode* findAUVPath(double weightMatrix[100][100], int coords[100][3],
+                      int startPoint, int goalPoint, int mode) {
+    if (weightMatrix == nullptr || coords == nullptr ||
+        startPoint < 0 || startPoint >= AuvStationCount ||
+        goalPoint < 0 || goalPoint >= AuvStationCount ||
+        mode < 1 || mode > 3) {
+        return nullptr;
+    }
+
+    const auto heuristic = [coords, goalPoint, mode](int id) {
+        return auvHeuristic(coords[id], coords[goalPoint], mode);
+    };
+
+    SearchState search(AuvStationCount, startPoint, heuristic);
+    const int goal = searchUntilGoal(
+        search, heuristic, AuvNeighbors{weightMatrix, coords},
+        [goalPoint](int id) { return id == goalPoint; });
+
+    return reconstructPath(search, goal, [](int id, int) {
+        return std::to_string(id);
+    });
+}
+
+namespace {
+
+inline double probabilisticEdgeCost(double distance, double risk, double lambda) {
+    return distance + lambda * risk;
+}
+
+inline double probabilisticHeuristic(const int from[2], const int goal[2],
+                                     int mode) {
+    const double dx = std::abs(static_cast<double>(from[0]) - goal[0]);
+    const double dy = std::abs(static_cast<double>(from[1]) - goal[1]);
+
+    switch (mode) {
+        case 1:
+            return dx + dy;
+        case 2:
+            return std::sqrt(dx * dx + dy * dy);
+        default:
+            return 0.0;
+    }
+}
+
+}  // namespace
+
+namespace {
+
+inline double probabilisticPathSafety(const double riskMatrix[100][100],
+                                      const std::vector<int>& route) {
+    double safety = 1.0;
+    for (auto node = route.begin(); node != route.end(); ++node) {
+        const auto next = node + 1;
+        if (next == route.end()) {
+            break;
+        }
+        safety *= 1.0 - riskMatrix[*node][*next];
+    }
+    return safety;
+}
+
+}  // namespace
+
+namespace {
+
+constexpr int ProbabilisticNodeCount = 100;
+thread_local double lastProbabilisticSafety = -1.0;
+
+struct ProbabilisticNeighbors {
+    const double (*distances)[ProbabilisticNodeCount];
+    const double (*risks)[ProbabilisticNodeCount];
+    double lambda;
+
+    template <typename Emit>
+    void operator()(int from, Emit emit) const {
+        for (int to = 0; to < ProbabilisticNodeCount; ++to) {
+            const double distance = distances[from][to];
+            const double risk = risks[from][to];
+            if (from == to || distance <= 0.0 || !std::isfinite(distance) ||
+                !(risk >= 0.0 && risk < 1.0)) {
+                continue;
+            }
+            const double cost = probabilisticEdgeCost(distance, risk, lambda);
+            if (std::isfinite(cost)) {
+                emit(to, cost);
+            }
+        }
+    }
+};
+
+}  // namespace
+
+double getLastProbabilisticPathSafety() {
+    return lastProbabilisticSafety;
+}
+
+PathNode* findProbabilisticPath(double distMatrix[100][100],
+                                double riskMatrix[100][100],
+                                int coords[100][2], int startPoint,
+                                int goalPoint, double lambda, int mode) {
+    lastProbabilisticSafety = -1.0;
+    if (distMatrix == nullptr || riskMatrix == nullptr || coords == nullptr ||
+        startPoint < 0 || startPoint >= ProbabilisticNodeCount ||
+        goalPoint < 0 || goalPoint >= ProbabilisticNodeCount ||
+        !std::isfinite(lambda) || lambda < 0.0 || mode < 1 || mode > 2) {
+        return nullptr;
+    }
+
+    const auto heuristic = [coords, goalPoint, mode](int id) {
+        return probabilisticHeuristic(coords[id], coords[goalPoint], mode);
+    };
+    SearchState search(ProbabilisticNodeCount, startPoint, heuristic);
+    const int goal = searchUntilGoal(
+        search, heuristic, ProbabilisticNeighbors{distMatrix, riskMatrix, lambda},
+        [goalPoint](int id) { return id == goalPoint; });
+
+    std::vector<int> route;
+    PathNode* path = reconstructPath(search, goal, [&route](int id, int) {
+        route.push_back(id);
+        return std::to_string(id);
+    });
+    if (path != nullptr) {
+        lastProbabilisticSafety = probabilisticPathSafety(riskMatrix, route);
+    }
+    return path;
 }

@@ -21,4 +21,6 @@ PathNode* findPCBPath(int pcbGrid[100][100], int m, int n,
                       int startX, int startY, int exitX, int exitY,
                       double weightMatrix[100][100], int mode);
 
+double getLastProbabilisticPathSafety();
+
 #endif
