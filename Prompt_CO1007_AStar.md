@@ -1353,3 +1353,244 @@ tu T3.3 cung cap P_safe cho test. Quy uoc xuat P_safe
 va xu ly dong hang tren LMS van cho xac nhan.
 
 
+# T4.1 - Sinh tam huong di va nhan hanh dong Game
+
+**Pham vi** - Hang 67, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Bang huong
+
+Quy uoc cuc bo dung x la hang va y la cot, danh so tu 0.
+
+| Nhan | dx | dy |
+|---|---:|---:|
+| Up | -1 | 0 |
+| Down | 1 | 0 |
+| Left | 0 | -1 |
+| Right | 0 | 1 |
+| Up-Left | -1 | -1 |
+| Up-Right | -1 | 1 |
+| Down-Left | 1 | -1 |
+| Down-Right | 1 | 1 |
+
+## Trien khai va trace
+
+Them GameDirections va forEachGameStep trong src/Algo.cpp.
+Helper nhan vi tri hien tai hop le va kich thuoc luoi trong
+pham vi mang 100 x 100. Moi huong tao o dich (x+dx, y+dy).
+Helper kiem tra bien truoc khi doc luoi, sau do loai o dich
+co gia tri 1. O dich co gia tri 2 van la buoc ung vien.
+
+Vi du tai (0,0), Up cho (-1,0) nen bi loai truoc khi doc
+luoi. Down-Right cho (1,1), nam trong luoi va duoc phat
+neu o dich khong bi chan. Moi lan goi xet dung 8 huong,
+dung O(1) thoi gian va O(1) bo nho phu ngoai callback.
+
+## Ket qua chay thuc te
+
+Build tests/test_t4_1.cpp voi src/PathNode.cpp bang GCC C++11,
+co -Wall -Wextra -Werror -pedantic. Test so sanh toan bo nhan,
+toa do va thu tu cua cac buoc sinh ra tren luoi 3 x 4.
+
+| Ca | Vi tri | Ket qua | Trang thai |
+|---|---|---|---|
+| Goc | (0,0) | 3 buoc | Dat |
+| Mep phai | (1,3) | 5 buoc | Dat |
+| Giua luoi | (1,1) | 8 buoc | Dat |
+| Vat can va o lay | (1,1) | 7 buoc, loai Up, giu Right | Dat |
+
+Chuong trinh in PASS va thoat voi ma 0. T4.1 da chay tren
+Linux va con cho log PowerShell. Quy uoc toa do, nhan va
+thu tu sinh huong con cho doi chieu voi testcase LMS.
+
+## Ban giao
+
+T4.2 se kiem tra hai o ke ngang va doc truoc khi chap nhan
+buoc cheo. Vi du trong ca vat can, Up-Right van xuat hien
+trong danh sach ung vien cua T4.1 vi o dich (0,2) trong.
+T4.2 se loai buoc nay vi o ke (0,1) la vat can.
+
+# T4.2 - Chan buoc cheo cat goc qua vat can
+
+**Pham vi** - Hang 68, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Trien khai va trace
+
+Cap nhat forEachGameStep trong src/Algo.cpp. Helper kiem tra o
+dich nam trong luoi va co gia tri khac 1. Neu dx va dy cung
+khac 0, helper kiem tra them hai o ke (x+dx,y) va (x,y+dy).
+Chi can mot o ke co gia tri 1 thi buoc cheo bi loai.
+
+Vi du tu (0,0) den (1,1), hai o ke la (0,1) va (1,0).
+Neu (0,1) la vat can, callback khong nhan buoc Down-Right.
+Voi vi tri hien tai hop le va o dich da qua kiem tra bien,
+hai o ke cung nam trong luoi. Moi lan goi xet toi da 8 huong
+va dung O(1) thoi gian, O(1) bo nho phu ngoai callback.
+
+## Kiem thu
+
+Test T4.2 dung luoi 2 x 2, bat dau tai (0,0). H la o ke
+ngang (0,1), V la o ke doc (1,0), D la o dich (1,1).
+Gia tri 0 la o trong, 1 la vat can, 2 la o lay.
+
+```text
+H=1 V=0 D=0 | Down-Right=blocked
+H=0 V=1 D=0 | Down-Right=blocked
+H=0 V=0 D=0 | Down-Right=allowed
+H=2 V=0 D=0 | Down-Right=allowed
+H=0 V=0 D=1 | Down-Right=blocked
+PASS
+```
+
+T4.2 dat 5/5 ca tren Linux. Chay hoi quy T4.1 dat 4/4 ca
+sau khi cap nhat ket qua mong doi cua ca vat can va o lay:
+Up-Left va Up-Right deu bi chan boi o (0,1), nen con 5 buoc.
+T4.1 truoc khi cap nhat da PASS tren PowerShell. T4.2 va
+test hoi quy da cap nhat con cho log PowerShell.
+
+T4.1 va T4.2 deu PASS tren PowerShell voi GCC C++11.
+Test hoi quy T4.1 dat 4/4 ca. Ca vat can va o lay con 5 buoc
+vi Up-Left va Up-Right deu bi chan boi o (0,1).
+T4.2 dat 5/5 ca. Chua co ket qua LMS.
+
+## Ban giao
+
+T4.3 se tinh chi phi di chuyen theo o dich va loai buoc,
+sau do cai hai heuristic Manhattan va Chebyshev.
+
+# T4.3 - Tinh chi phi dia hinh va heuristic Game
+
+**Pham vi** - Hang 69, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Chi phi di chuyen
+
+gameStepCost trong src/Algo.cpp lay chi phi co so theo o dich.
+O phang (0) co chi phi 1.0, o lay (2) co chi phi 2.0.
+Neu ca dx va dy deu khac 0, buoc di la buoc cheo va chi phi
+co so duoc nhan voi 1.5. Ham nhan buoc hop le tu bo sinh
+T4.2, noi vat can va buoc cat goc da duoc loai.
+
+| O dich | Di thang | Di cheo |
+|---|---:|---:|
+| Phang (0) | 1.0 | 1.5 |
+| Lay (2) | 2.0 | 3.0 |
+
+## Heuristic va gioi han
+
+gameHeuristic tinh dx = abs(x - goalX) va dy = abs(y - goalY).
+Mode 1 dung Manhattan, h = dx + dy. Mode 2 dung Chebyshev,
+h = max(dx, dy). Khi dang o dich, ca hai mode tra h = 0.
+Gia tri 0.0 cho mode khac la quy uoc cua helper cuc bo.
+Ca hai helper dung O(1) thoi gian va O(1) bo nho phu.
+
+Vi du tu (0,0) den (1,1) tren luoi phang va khong bi chan
+goc, mot buoc cheo hop le co chi phi 1.5. Manhattan cho
+h = 1 + 1 = 2, cao hon chi phi toi uu 1.5. Vi vay mode 1
+khong dam bao h la can duoi tren luoi cho phep di cheo.
+Chebyshev cho h = 1 trong ca nay.
+
+## Ket qua chay thuc te
+
+Build tests/test_t4_3.cpp voi src/PathNode.cpp bang GCC C++11,
+cac co -Wall -Wextra -Werror -pedantic. Test doi chieu bon
+chi phi, hai heuristic va h(goal). Chuong trinh thoat ma 0.
+
+```text
+Flat straight=1
+Swamp straight=2
+Flat diagonal=1.5
+Swamp diagonal=3
+Manhattan=2 | Chebyshev=1 | actual diagonal cost=1.5
+PASS
+```
+
+Hoi quy T4.1 va T4.2 cung PASS tren Linux. T4.3 con cho log
+PowerShell. Chua co ket qua LMS.
+
+## Ban giao
+
+T4.4 se noi bo sinh buoc T4.2 va hai helper T4.3 vao
+findGamePath, sau do doi chieu nhan huong, g, h va f
+tren danh sach PathNode.
+
+# T4.4 - Hoan thien findGamePath va ghi trace luoi
+
+**Pham vi** - Hang 70, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Trien khai
+
+findGamePath giu chu ky trong Algo.h. Ham kiem tra con tro,
+kich thuoc luoi, toa do, mode va vat can tai start hoac goal.
+Moi o (x,y) duoc ma hoa thanh ID = x*n + y. Engine lay lai
+hang bang ID/n va cot bang ID%n.
+
+GameNeighbors dung forEachGameStep de sinh buoc hop le va
+chan cat goc. gameStepCost tinh chi phi theo o dich.
+gameHeuristic dung Manhattan o mode 1 va Chebyshev o mode 2.
+Khi truy vet, do lech toa do giua parent va nut hien tai
+xac dinh nhan huong. Nut dau tam dung nhan Start.
+
+## Du lieu va tinh tay
+
+Luoi 3 x 4, start (1,0), goal (1,3). O (1,1) va (1,2)
+la o lay. O (2,0) la vat can. Cac o con lai la o phang.
+
+| Tuyen | Chi phi |
+|---|---:|
+| (1,0) -> (1,1) -> (1,2) -> (1,3) | 2 + 2 + 1 = 5 |
+| (1,0) -> (0,1) -> (0,2) -> (1,3) | 1.5 + 1 + 1.5 = 4 |
+
+Tu (1,0), buoc Down-Right toi (2,1) bi chan vi o ke (2,0)
+la vat can. Buoc Up-Right toi (0,1) hop le vi ca hai o ke
+(0,0) va (1,1) deu di duoc. O lay (1,1) duoc phep lam o ke.
+
+## Trace tinh tay cho mode 2
+
+| Nut lay khoi heap | Cap nhat chinh |
+|---|---|
+| (1,0) | Dua (0,1) vao heap voi g=1.5, h=2, f=3.5. Dua (1,1) vao voi g=2, h=2, f=4. |
+| (0,1) | Di Right toi (0,2), cap nhat g=2.5, h=1, f=3.5 va parent=(0,1). |
+| (0,2) | Di Down-Right toi (1,3), cap nhat g=4, h=0, f=4 va parent=(0,2). |
+| (1,3) | Dich duoc uu tien trong nhom f=4 vi h=0. Dung va truy vet tuyen. |
+
+## Ket qua chay thuc te
+
+Build tests/test_t4_4.cpp voi src/Algo.cpp va src/PathNode.cpp
+bang GCC C++11 voi -Wall -Wextra -Werror -pedantic.
+Test kiem tra nhan, g/h/f va duoi danh sach o ca hai mode.
+Ca start trung goal tra mot nut co g=h=f=0. Ca luoi 2 x 2
+co ca hai o ke bi chan tra nullptr. Chuong trinh thoat ma 0.
+
+```text
+Mode 1
+Start | g=0 h=3 f=3
+Up-Right | g=1.5 h=3 f=4.5
+Right | g=2.5 h=2 f=4.5
+Down-Right | g=4 h=0 f=4
+Mode 2
+Start | g=0 h=3 f=3
+Up-Right | g=1.5 h=2 f=3.5
+Right | g=2.5 h=1 f=3.5
+Down-Right | g=4 h=0 f=4
+PASS
+```
+
+T4.1 den T4.3 da PASS tren PowerShell. T4.4 da PASS tren
+Linux va con cho log PowerShell. Chua co ket qua LMS.
+
+## Quy uoc va ban giao
+
+Nhan Start, quy uoc x la hang, y la cot va xu ly mode sai
+bang nullptr la quy uoc cuc bo. Nhan nut dau con cho doi
+chieu testcase LMS. Manhattan co the uoc luong qua cao
+tren luoi di cheo, nen ket qua ca nay khong chung minh
+mode 1 luon tra tuyen toi uu.
+
+Moi luot mo rong xet toi da 8 huong. Khoi tao trang thai
+dung O(m*n) thoi gian va bo nho. Neu co R luot mo rong,
+Q thao tac heap va kich thuoc heap toi da H, tim kiem dung
+O(R + Q log(max(2,H))) thoi gian. Truy vet tuyen L nut dung
+O(L) thoi gian. Muc tiep theo la T5.1.

@@ -364,3 +364,113 @@ PathNode* findProbabilisticPath(double distMatrix[100][100],
     }
     return path;
 }
+
+namespace {
+
+struct GameDirection {
+    int dx;
+    int dy;
+    const char* label;
+};
+
+constexpr GameDirection GameDirections[] = {
+    {-1,  0, "Up"},
+    { 1,  0, "Down"},
+    { 0, -1, "Left"},
+    { 0,  1, "Right"},
+    {-1, -1, "Up-Left"},
+    {-1,  1, "Up-Right"},
+    { 1, -1, "Down-Left"},
+    { 1,  1, "Down-Right"},
+};
+
+template <typename Emit>
+void forEachGameStep(const int grid[100][100], int rows, int cols,
+                     int x, int y, Emit emit) {
+    for (const auto& direction : GameDirections) {
+        const int nextX = x + direction.dx;
+        const int nextY = y + direction.dy;
+        if (nextX >= 0 && nextX < rows && nextY >= 0 && nextY < cols &&
+            grid[nextX][nextY] != 1) {
+            const bool diagonal = direction.dx != 0 && direction.dy != 0;
+            if (diagonal && (grid[nextX][y] == 1 || grid[x][nextY] == 1)) {
+                continue;
+            }
+            emit(nextX, nextY, direction);
+        }
+    }
+}
+
+}  // namespace
+
+namespace {
+
+inline double gameStepCost(int destinationTerrain, const GameDirection& direction) {
+    const double base = destinationTerrain == 2 ? 2.0 : 1.0;
+    const bool diagonal = direction.dx != 0 && direction.dy != 0;
+    return base * (diagonal ? 1.5 : 1.0);
+}
+
+inline double gameHeuristic(int x, int y, int goalX, int goalY, int mode) {
+    const int dx = std::abs(x - goalX);
+    const int dy = std::abs(y - goalY);
+    if (mode == 1) return dx + dy;
+    if (mode == 2) return std::max(dx, dy);
+    return 0.0;
+}
+
+}  // namespace
+
+namespace {
+
+struct GameNeighbors {
+    const int (*grid)[100];
+    int rows;
+    int cols;
+
+    template <typename Emit>
+    void operator()(int id, Emit emit) const {
+        forEachGameStep(grid, rows, cols, id / cols, id % cols,
+            [&](int x, int y, const GameDirection& direction) {
+                emit(x * cols + y, gameStepCost(grid[x][y], direction));
+            });
+    }
+};
+
+}  // namespace
+
+PathNode* findGamePath(int mapGrid[100][100], int m, int n, int startX,
+                       int startY, int goalX, int goalY, int mode) {
+    if (mapGrid == nullptr || m < 1 || m > 100 || n < 1 || n > 100 ||
+        startX < 0 || startX >= m || startY < 0 || startY >= n ||
+        goalX < 0 || goalX >= m || goalY < 0 || goalY >= n ||
+        (mode != 1 && mode != 2)) {
+        return nullptr;
+    }
+    if (mapGrid[startX][startY] == 1 || mapGrid[goalX][goalY] == 1) {
+        return nullptr;
+    }
+
+    const int startId = startX * n + startY;
+    const int goalId = goalX * n + goalY;
+    const auto heuristic = [n, goalX, goalY, mode](int id) {
+        return gameHeuristic(id / n, id % n, goalX, goalY, mode);
+    };
+
+    SearchState search(m * n, startId, heuristic);
+    const int reached = searchUntilGoal(
+        search, heuristic, GameNeighbors{mapGrid, m, n},
+        [goalId](int id) { return id == goalId; });
+
+    return reconstructPath(search, reached, [n](int id, int parent) {
+        if (parent < 0) return std::string("Start");
+        const int dx = id / n - parent / n;
+        const int dy = id % n - parent % n;
+        for (const auto& direction : GameDirections) {
+            if (direction.dx == dx && direction.dy == dy) {
+                return std::string(direction.label);
+            }
+        }
+        return std::string();
+    });
+}
