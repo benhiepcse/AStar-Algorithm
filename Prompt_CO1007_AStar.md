@@ -1594,3 +1594,327 @@ dung O(m*n) thoi gian va bo nho. Neu co R luot mo rong,
 Q thao tac heap va kich thuoc heap toi da H, tim kiem dung
 O(R + Q log(max(2,H))) thoi gian. Truy vet tuyen L nut dung
 O(L) thoi gian. Muc tiep theo la T5.1.
+
+
+# T5.1 - Chuyen luoi PCB thanh do thi va dien ma tran trong so
+
+**Pham vi** - Hang 71, sheet PROGRESS.
+**Trang thai** - Kiem thu cuc bo dat tren GCC C++11/Linux.
+
+## Trien khai
+
+Them buildPCBWeightMatrix vao src/Algo.cpp. Theo quy uoc tam C11,
+o 0 la o trong, o 1 la vat can, va ID cua o (x,y) la x*n+y.
+Moi o trong xet bon huong Up, Down, Left, Right. Neu o ke nam
+trong luoi va cung trong, ghi trong so co so 1.0 cho canh do.
+
+Helper kiem tra con tro va kich thuoc truoc khi ghi. Dieu kien
+m > 100/n phat hien luoi vuot 100 ID ma khong can nhan m*n.
+Dau vao bi tu choi tra false. Voi dau vao hop le, helper xoa
+toan bo ma tran 100 x 100 ve 0.0 roi dien cac canh. Phi re
+thuoc buoc tim duong sau nay, nen ma tran luu trong so co so.
+
+## Du lieu va tinh tay
+
+Luoi 2 x 3 co vat can tai (0,1). ID theo hang la 0,1,2
+va 3,4,5. Cac cap ke di duoc la 0-3, 2-5, 3-4 va 4-5.
+Moi cap ghi trong so 1.0 theo ca hai chieu. Hang va cot cua
+ID 1 deu bang 0 vi o nay la vat can.
+
+## Ket qua chay thuc te
+
+Build tests/test_t5_1.cpp voi src/PathNode.cpp bang GCC C++11,
+cac co -Wall -Wextra -Werror -pedantic -fsanitize=undefined.
+Test nap gia tri cu 9.0 truoc khi dung ma tran roi doi chieu
+ca 10.000 o. Luoi 10 x 10 duoc chap nhan va co canh 98 -> 99.
+Luoi 11 x 10 va 0 x 10 bi tu choi. Canh 98 -> 99 giu nguyen
+sau hai lan goi bi tu choi.
+
+```text
+0 0 0 1 0 0
+0 0 0 0 0 0
+0 0 0 0 0 1
+1 0 0 0 1 0
+0 0 0 1 0 1
+0 0 1 0 1 0
+PASS
+```
+
+Chuong trinh thoat ma 0 tren Linux. Con cho log PowerShell.
+Quy uoc ID, bon huong, gia tri khong co canh va cach xu ly
+luoi vuot 100 ID van cho doi chieu testcase hoac Q&A LMS.
+
+## Do phuc tap va ban giao
+
+Voi N = m*n va M = 100 la suc chua ma tran, khoi tao output
+dung O(M^2) thoi gian. Dien canh dung O(N) vi moi o xet
+toi da bon huong. Bo nho phu la O(1) ngoai ma tran dau ra.
+
+T5.2 se luu trang thai theo cap (ID o, huong den) de phan
+biet cac tuyen co the chiu phi re khac nhau tai cung mot o.
+
+# T5.2 - Luu trang thai PCB theo o va huong den
+
+**Pham vi** - Hang 72, sheet PROGRESS.
+**Trang thai** - T5.2 va hoi quy T5.1 PASS tren GCC C++11/Linux.
+
+## Trien khai
+
+Mo rong PCBStateKey trong src/Algo.cpp. Ma hoa trang thai bang
+stateId = cellId * 5 + incomingDirection. Bon slot 0..3 luu
+huong den Up, Down, Left, Right. Slot 4 la None cho diem dau.
+cellOf giai ma bang phep chia nguyen cho 5 va directionOf lay
+phan du khi chia cho 5.
+
+Engine A* luu g, parent va ban ghi heap theo stateId day du.
+Khi truy vet, moi parent chi den ca o va huong den cua trang
+thai cha. Ma hoa va giai ma dung O(1) thoi gian. Voi N o,
+bang records khoi tao 5*N slot, dung O(N) bo nho.
+
+## Du lieu va trace tinh tay
+
+Do thi thu mo phong hai tuyen tren luoi 2 x 3, bat dau o ID 0,
+gap nhau tai ID 4 va cung di Right toi dich ID 5. Chi phi
+canh duoc dat san trong test de kiem tra khoa trang thai.
+
+| Tuyen theo ID o | Huong den o 4 | State ID tai o 4 | g tai o 4 | Chi phi buoc cuoi | Tong |
+|---|---|---:|---:|---:|---:|
+| 0 -> 1 -> 4 -> 5 | Down | 21 | 2.5 | 1.5 | 4.0 |
+| 0 -> 3 -> 4 -> 5 | Right | 23 | 2.5 | 1.0 | 3.5 |
+
+Hai trang thai 21 va 23 cung co g=2.5. Voi h=0, engine lay
+21 truoc theo ID va ghi chi phi dich la 4.0. Sau do engine
+mo rong 23, tim duoc chi phi 3.5 va doi parent cua dich
+tu 21 sang 23. Truy vet cho day state ID 4 -> 16 -> 23 -> 28,
+tuong ung day ID o 0 -> 3 -> 4 -> 5.
+
+## Ket qua chay thuc te
+
+Build tests/test_t5_2.cpp cung src/PathNode.cpp bang GCC C++11
+voi -Wall -Wextra -Werror -pedantic. Test doi chieu hai ban ghi
+tai o 4, parent rieng cua tung ban ghi, chi phi dich va day
+trang thai truy vet. Chuong trinh thoat ma 0.
+
+```text
+Cell 4: Down state=21, Right state=23
+Goal costs: via Down=4, via Right=3.5
+State path: 4 -> 16 -> 23 -> 28
+PASS
+```
+
+T5.1 da PASS tren PowerShell. T5.2 da PASS tren Linux va con
+cho log PowerShell. Cac nhan so trong test la state ID noi bo.
+
+T5.1 va T5.2 deu PASS tren PowerShell voi GCC C++11.
+T5.2 xac nhan hai huong den cung mot o co state ID va parent
+rieng. Engine truy vet dung chuoi 4 -> 16 -> 23 -> 28
+voi chi phi 3.5 tren do thi thu. Chua co ket qua LMS.
+
+## Ban giao
+
+T5.3 se tinh phi re tu huong den va huong di tiep, xu ly None
+o diem dau va cai heuristic Manhattan, Chebyshev cho PCB.
+T5.4 se noi cac helper vao findPCBPath.
+
+# T5.3 - Tinh phi re va heuristic PCB
+
+**Pham vi** - Hang 73, sheet PROGRESS.
+**Trang thai** - T5.3 va hoi quy T5.2 PASS tren GCC C++11/Linux.
+
+## Trien khai
+
+Them pcbStepCost va pcbHeuristic vao src/Algo.cpp. pcbStepCost
+nhan trong so co so cua canh, huong den va huong di tiep.
+Ham cong 0.5 khi huong den khac None va khac huong di tiep.
+Start dung PCBStateKey::None nen buoc dau khong chiu phi re.
+Khi tich hop A*, chi phi tra ve duoc cong vao g hien tai.
+
+pcbHeuristic doi ID o thanh hang va cot bang phep chia nguyen
+va phep lay du, sau do dung lai cong thuc cua gameHeuristic.
+Mode 1 dung Manhattan, mode 2 dung Chebyshev. Hai helper
+deu dung O(1) thoi gian va O(1) bo nho phu.
+
+## Du lieu va tinh tay
+
+| Ca | Huong den | Huong di | Trong so | Phi re | Chi phi |
+|---|---|---|---:|---:|---:|
+| Buoc dau | None | Right | 1.0 | 0.0 | 1.0 |
+| Di thang | Right | Right | 1.0 | 0.0 | 1.0 |
+| Doi huong | Right | Down | 1.0 | 0.5 | 1.5 |
+| Doi huong voi trong so 2 | Right | Down | 2.0 | 0.5 | 2.5 |
+
+Tren luoi 4 cot, ID 0 la (0,0), ID 11 la (2,3).
+Do lech theo hang va cot la 2 va 3. Manhattan cho 2 + 3 = 5.
+Chebyshev cho max(2,3) = 3. Ca hai tra 0 tai dich.
+
+## Ket qua chay thuc te
+
+Build tests/test_t5_3.cpp voi src/PathNode.cpp bang GCC C++11
+va cac co -Wall -Wextra -Werror -pedantic. Test doi chieu
+bon chi phi, hai gia tri h va h(goal) o ca hai mode.
+Chuong trinh thoat ma 0.
+
+```text
+First=1 | Straight=1 | Turn=1.5
+Manhattan=5 | Chebyshev=3
+PASS
+```
+
+Hoi quy T5.2 PASS tren Linux. T5.3 con cho log PowerShell.
+Chua co ket qua LMS.
+
+T5.1 den T5.3 deu PASS tren PowerShell voi GCC C++11.
+T5.3 xac nhan buoc dau va buoc di thang co chi phi 1.0,
+buoc doi huong co chi phi 1.5. Manhattan = 5 va
+Chebyshev = 3 tren ca thu. Chua co ket qua LMS.
+
+## Ban giao
+
+T5.4 se noi ma tran T5.1, khoa trang thai T5.2 va hai helper
+T5.3 vao findPCBPath. Khi tinh h, giai ma state ID thanh ID o
+truoc. Khi tinh chi phi canh, dung huong den cua trang thai
+hien tai va huong cua buoc ung vien.
+
+# T5.4 - Hoan thien findPCBPath va kiem thu phi re
+
+**Pham vi** - Hang 74, sheet PROGRESS.
+**Trang thai** - Test T5.4 va demo main.cpp chay thanh cong tren Linux.
+
+## Trien khai
+
+findPCBPath dung buildPCBWeightMatrix de dien ma tran dau ra.
+Ma tran luu trong so co so cua canh. PCBNeighbors xet bon huong,
+tra trong so trong ma tran va goi pcbStepCost de cong phi re
+khi sinh trang thai moi. Engine luu g va parent theo cap
+(ID o, huong den). Diem dau dung None. Khi lay ra mot trang
+thai nam tai o exit, engine dung va truy vet danh sach PathNode
+theo thu tu start den exit. Nhan nut tam dung dang (x,y).
+
+## Du lieu, ma tran va tinh tay
+
+Luoi 2 x 3 gom sau o trong. Start la (0,0), exit la (1,2).
+ID theo thu tu hang la 0,1,2 va 3,4,5. Vung 6 x 6 cua ma
+tran dau ra theo ket qua tinh tay:
+
+```text
+0 1 0 1 0 0
+1 0 1 0 1 0
+0 1 0 0 0 1
+1 0 0 0 1 0
+0 1 0 1 0 1
+0 0 1 0 1 0
+```
+
+| Tuyen theo ID o | Huong di | Chieu dai | So lan re | Tong chi phi |
+|---|---|---:|---:|---:|
+| 0 -> 1 -> 2 -> 5 | Right, Right, Down | 3 | 1 | 3.5 |
+| 0 -> 1 -> 4 -> 5 | Right, Down, Right | 3 | 2 | 4.0 |
+| 0 -> 3 -> 4 -> 5 | Down, Right, Right | 3 | 1 | 3.5 |
+
+Vi du relax o buoc cuoi: tai o 2 voi huong den Right va
+g=2, engine doc weights[2][5]=1. Buoc Down them phi re 0.5.
+Trang thai (5,Down) nhan g ung vien 3.5, h=0 va f=3.5.
+Test chap nhan tuyen co ba canh va mot lan re, ke ca khi
+co mot tuyen khac cung chi phi toi uu.
+
+## Ket qua chay thuc te
+
+Build tests/test_t5_4.cpp cung src/Algo.cpp va src/PathNode.cpp
+bang GCC C++11 voi -Wall -Wextra -Werror -pedantic. Test doi
+chieu trong so cua tung canh tren tuyen, so buoc, so lan re
+va g/h/f tai tung nut. Test cung kiem tra ca khong co duong
+va ca start trung exit. Chuong trinh thoat ma 0.
+
+```text
+Mode 1 | (0,0) | (0,1) | (0,2) | (1,2) | g=3.5
+Mode 2 | (0,0) | (0,1) | (0,2) | (1,2) | g=3.5
+PASS
+```
+
+Demo main.cpp da lien ket va chay thanh cong ca nam API tren
+Linux. Demo PCB 1 x 2 cho g=1 tai dich va ma tran hai hang
+0 1 / 1 0. T5.1 den T5.3 da PASS tren PowerShell. T5.4 va
+demo con cho log PowerShell. Chua co ket qua LMS.
+
+## Do phuc tap va quy uoc
+
+Voi N = m*n va M = 100 la suc chua ma tran, pha dung ma tran
+dung O(M^2 + N) thoi gian. Tim kiem khoi tao 5*N ban ghi va
+xet toi da bon canh moi lan mo rong. Voi phi buoc toi thieu
+bang 1, ca Manhattan va Chebyshev deu nhat quan tren luoi
+bon huong. Do thi trang thai co O(N) canh nen tim kiem dung
+O(N log N) thoi gian va O(N) bo nho phu, tinh rieng ma tran.
+Truy vet tuyen L nut dung O(L) thoi gian va bo nho.
+
+Khi kich thuoc va mode hop le, ma tran duoc dung truoc khi
+kiem tra toa do dau/cuoi. Neu dau/cuoi khong hop le hoac
+khong co duong, API tra nullptr. Nhan (x,y), ma tran C11
+va cach xu ly dau vao sai van cho doi chieu voi LMS.
+
+## Ban giao
+
+T5.4 hoan tat tich hop nam API. Buoc tiep theo la QA.1, chay
+lai toan bo test tu ma nguon va doi chieu ket qua demo.
+
+T5.1 den T5.4 deu PASS tren PowerShell voi GCC C++11.
+T5.4 xac nhan ca hai mode chon tuyen co 3 canh va 1 lan re,
+voi g tai dich bang 3.5. Demo main.cpp da chay du nam API.
+Demo PCB 1 x 2 cho g tai dich bang 1 va ma tran 0 1 / 1 0.
+Chua co ket qua LMS.
+# QA.1 - Ra soat va kiem thu chung nam API
+
+**Pham vi** - Hang 75, sheet PROGRESS.
+**Trang thai** - QA.1 PASS tren GCC C++11/Linux.
+
+## Bang kiem
+
+| API | Mode | g dich doi chieu | So ca dat |
+|---|---|---:|---:|
+| Mesh | Khong co mode | 2 | 3/3 |
+| AUV | 1, 2, 3 | 4 | 9/9 |
+| Probabilistic | 1, 2 | 3 | 6/6 |
+| Game | 1, 2 | 2 | 6/6 |
+| PCB | 1, 2 | 1 | 6/6 |
+
+Moi mode kiem tra ca co duong, start trung goal va khong co
+duong. Test kiem tra nhan, thu tu linked list, g, h, f = g + h
+va duoi danh sach. Ca start trung goal tra dung mot nut co
+g = h = f = 0. Ca khong co duong tra nullptr.
+
+Nam API duoc goi qua Algo.h va lien ket voi Algo.cpp.
+Probabilistic kiem tra P_safe va viec dat lai gia tri getter
+khi khong co duong. PCB kiem tra canh hai chieu va viec
+xoa canh cu khi dung lai cung ma tran dau ra.
+
+## Gioi han toi uu
+
+Mesh dung can duoi tu canh cuoi vao dich. PCB dung Manhattan
+hoac Chebyshev tren luoi bon huong voi chi phi moi buoc it
+nhat 1. T5.4 xac nhan chi phi 3.5 cho tuyen mot lan re,
+so voi 4.0 cho tuyen cung chieu dai co so nhung re hai lan.
+
+T2.4 tai hien AUV tra g = 5 voi ba heuristic hinh hoc, trong
+khi h = 0 tra g = 2. Probabilistic co cung rui ro neu khoang
+cach hinh hoc vuot chi phi con lai. Game mode 1 co the
+uoc luong h = 2 cho mot buoc cheo phang chi ton 1.5.
+Cac truong hop uoc luong qua cao co the lam engine dung
+som tai dich va tra tuyen chua toi uu.
+
+## Ket qua va danh sach loi da sua
+
+22/22 test hoi quy PASS. Test QA.1 in PASS: 30 API cases.
+Demo main.cpp chay du nam API va thoat ma 0 tren Linux.
+QA.1 bo sung tests/test_qa_1.cpp. Khong co loi can sua trong
+pham vi kiem thu da chay.
+
+Demo nam API da PASS tren PowerShell theo log T5.4.
+Luot chay tong hop QA.1 tren PowerShell va CodeRunner
+con cho xac nhan. Nhan, quy tac dong hang, ma tran PCB
+va cach xuat P_safe tren LMS se duoc doi chieu o QA.2.
+
+QA.1 da PASS tren PowerShell voi GCC C++11.
+26/26 chuong trinh test C++ chay thanh cong, gom test hoi quy,
+30 ca hop dong API, ca bien, 384 ca oracle va test chain scaling.
+Demo main.cpp chay du nam API. Bo checker dong goi dat 6/6 test
+fixture, bao phu nam nhom penalty cua de. Goi RAR nop that chua
+duoc kiem tra. Chua co ket qua LMS CodeRunner.

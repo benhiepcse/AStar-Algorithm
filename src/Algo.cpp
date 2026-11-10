@@ -171,6 +171,14 @@ struct PCBStateKey {
     static int encode(int cellId, int incomingDirection) {
         return cellId * SlotsPerCell + incomingDirection;
     }
+
+    static int cellOf(int stateId) {
+        return stateId / SlotsPerCell;
+    }
+
+    static int directionOf(int stateId) {
+        return stateId % SlotsPerCell;
+    }
 };
 
 struct MeshNeighbors {
@@ -472,5 +480,114 @@ PathNode* findGamePath(int mapGrid[100][100], int m, int n, int startX,
             }
         }
         return std::string();
+    });
+}
+
+namespace {
+
+constexpr int PCBMatrixSize = 100;
+
+inline bool buildPCBWeightMatrix(const int grid[100][100], int m, int n,
+                                 double weights[100][100]) {
+    if (!grid || !weights || m < 1 || n < 1 || m > PCBMatrixSize / n) {
+        return false;
+    }
+
+    for (int id = 0; id < PCBMatrixSize; ++id) {
+        std::fill(weights[id], weights[id] + PCBMatrixSize, 0.0);
+    }
+
+    for (int x = 0; x < m; ++x) {
+        for (int y = 0; y < n; ++y) {
+            if (grid[x][y] != 0) continue;
+
+            const int from = x * n + y;
+            for (int k = 0; k < 4; ++k) {
+                const int nx = x + GameDirections[k].dx;
+                const int ny = y + GameDirections[k].dy;
+                if (nx >= 0 && nx < m && ny >= 0 && ny < n &&
+                    grid[nx][ny] == 0) {
+                    weights[from][nx * n + ny] = 1.0;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+}  // namespace
+
+namespace {
+
+inline double pcbStepCost(double weight, int incomingDirection,
+                          int outgoingDirection) {
+    const bool turns = incomingDirection != PCBStateKey::None &&
+                       incomingDirection != outgoingDirection;
+    return weight + (turns ? 0.5 : 0.0);
+}
+
+inline double pcbHeuristic(int cellId, int goalCellId, int cols, int mode) {
+    return gameHeuristic(cellId / cols, cellId % cols,
+                         goalCellId / cols, goalCellId % cols, mode);
+}
+
+}  // namespace
+
+namespace {
+
+struct PCBNeighbors {
+    const double (*weights)[PCBMatrixSize];
+    int rows;
+    int cols;
+
+    template <typename Emit>
+    void operator()(int state, Emit emit) const {
+        const int cell = PCBStateKey::cellOf(state);
+        const int incoming = PCBStateKey::directionOf(state);
+        for (int dir = 0; dir < 4; ++dir) {
+            const int x = cell / cols + GameDirections[dir].dx;
+            const int y = cell % cols + GameDirections[dir].dy;
+            if (x < 0 || x >= rows || y < 0 || y >= cols) continue;
+
+            const int next = x * cols + y;
+            const double weight = weights[cell][next];
+            if (weight > 0.0) {
+                emit(PCBStateKey::encode(next, dir),
+                     pcbStepCost(weight, incoming, dir));
+            }
+        }
+    }
+};
+
+}  // namespace
+
+PathNode* findPCBPath(int pcbGrid[100][100], int m, int n, int startX,
+                      int startY, int exitX, int exitY,
+                      double weightMatrix[100][100], int mode) {
+    if ((mode != 1 && mode != 2) ||
+        !buildPCBWeightMatrix(pcbGrid, m, n, weightMatrix)) {
+        return nullptr;
+    }
+    if (startX < 0 || startX >= m || startY < 0 || startY >= n ||
+        exitX < 0 || exitX >= m || exitY < 0 || exitY >= n ||
+        pcbGrid[startX][startY] != 0 || pcbGrid[exitX][exitY] != 0) {
+        return nullptr;
+    }
+
+    const int exitCell = exitX * n + exitY;
+    const int start = PCBStateKey::encode(startX * n + startY, PCBStateKey::None);
+    const auto heuristic = [exitCell, n, mode](int state) {
+        return pcbHeuristic(PCBStateKey::cellOf(state), exitCell, n, mode);
+    };
+
+    SearchState search(m * n * PCBStateKey::SlotsPerCell, start, heuristic);
+    const int reached = searchUntilGoal(
+        search, heuristic, PCBNeighbors{weightMatrix, m, n},
+        [exitCell](int state) { return PCBStateKey::cellOf(state) == exitCell; });
+
+    return reconstructPath(search, reached, [n](int state, int) {
+        const int cell = PCBStateKey::cellOf(state);
+        return "(" + std::to_string(cell / n) + "," +
+               std::to_string(cell % n) + ")";
     });
 }
